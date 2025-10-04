@@ -61,6 +61,19 @@ def main():
     # Phase 2: Service Scanning
     if discovery.live_hosts:
         print(f"\n[*] PHASE 2: Comprehensive service enumeration")
+
+        # Transfer host information from discovery to scanner
+        for host in discovery.live_hosts:
+            host_info = discovery.get_host_info(host)
+            if host not in scanner.results['hosts']:
+                scanner.results['hosts'][host] = {
+                    'ports': {},
+                    'os_guess': host_info.get('os_guess', 'Unknown'),
+                    'discovery_methods': host_info.get('discovery_methods', []),
+                    'first_seen': host_info.get('first_seen', datetime.now().isoformat())
+                }
+
+        # Perform service scanning
         for host in discovery.live_hosts:
             scanner.comprehensive_service_scan(host)
 

@@ -6,11 +6,14 @@ Host discovery module
 import socket
 import subprocess
 import requests
-from utils import network, helpers
+from utils import network
+from datetime import datetime
+
 
 class HostDiscovery:
     def __init__(self):
         self.live_hosts = set()
+        self.discovered_hosts = {}  # Para almacenar información adicional
 
     def advanced_host_discovery(self, target):
         """Multi-method host discovery"""
@@ -36,7 +39,7 @@ class HostDiscovery:
                 result = sock.connect_ex((target, port))
                 sock.close()
                 if result == 0:
-                    self.register_host(target, f"tcp_{port}")
+                    self._register_host(target, f"tcp_{port}")
                     return True
             except:
                 pass
@@ -52,7 +55,7 @@ class HostDiscovery:
                 sock.sendto(b'', (target, port))
                 sock.recvfrom(1024)
                 sock.close()
-                self.register_host(target, f"udp_{port}")
+                self._register_host(target, f"udp_{port}")
                 return True
             except:
                 pass
@@ -64,7 +67,7 @@ class HostDiscovery:
             try:
                 response = requests.get(f"{scheme}://{target}", timeout=2, verify=False)
                 if response.status_code < 500:
-                    self.register_host(target, f"{scheme}_web")
+                    self._register_host(target, f"{scheme}_web")
                     return True
             except:
                 pass
@@ -76,13 +79,27 @@ class HostDiscovery:
             result = subprocess.run(['ping', '-c', '1', '-W', '1', target],
                                     capture_output=True, text=True)
             if result.returncode == 0:
-                self.register_host(target, "icmp")
+                self._register_host(target, "icmp")
                 return True
         except:
             pass
         return False
 
-    def register_host(self, target, method):
-        """Register discovered host"""
+    def _register_host(self, target, method):
+        """Register discovered host with OS fingerprinting"""
         self.live_hosts.add(target)
+
+        if target not in self.discovered_hosts:
+            self.discovered_hosts[target] = {
+                'discovery_methods': [method],
+                'os_guess': network.os_fingerprint(target),
+                'first_seen': datetime.now().isoformat()
+            }
+        else:
+            self.discovered_hosts[target]['discovery_methods'].append(method)
+
         print(f"[+] HOST DISCOVERED: {target} via {method}")
+
+    def get_host_info(self, target):
+        """Get information about a discovered host"""
+        return self.discovered_hosts.get(target, {})
